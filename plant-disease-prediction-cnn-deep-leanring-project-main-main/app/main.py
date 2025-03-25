@@ -8,56 +8,24 @@ import streamlit as st
 import openai
 import h5py
 
-# Set page config and inject background + UI styles
 st.set_page_config(page_title="Plant Diagnosis & AI Bot 🌿", layout="wide")
+
 st.markdown("""
     <style>
     .main {
-        background: linear-gradient(to bottom right, #e3fceb, #f6fff9),
-                    url("https://www.transparenttextures.com/patterns/leaf.png");
-        background-size: cover;
-        background-attachment: fixed;
+        background-color: #f7fdf9;
     }
-
-    .stApp {
-        font-family: 'Segoe UI', sans-serif;
-    }
-
-    /* Layout styling */
-    div[data-testid="column"] > div {
-        padding: 0.5rem;
-        min-height: 320px;
-    }
-
-    section[data-testid="stFileUploader"] {
-        padding-top: 1rem;
-        padding-bottom: 1rem;
-        background-color: #ffffffcc;
-        border-radius: 10px;
-        box-shadow: 0 0 5px rgba(0,0,0,0.1);
-    }
-
-    .element-container:has([data-testid="stCameraInput"]) {
-        padding-top: 0.5rem;
-        padding-bottom: 0.5rem;
-        background-color: #ffffffcc;
-        border-radius: 10px;
-        box-shadow: 0 0 5px rgba(0,0,0,0.1);
-    }
-
     .stButton > button {
         background-color: #4CAF50;
         color: white;
-        padding: 0.4rem 1.2rem;
-        border-radius: 6px;
-        font-size: 15px;
         font-weight: bold;
     }
-
     .stButton > button:hover {
         background-color: #45a049;
     }
-
+    .stTextInput > div > div > input {
+        background-color: #ffffff;
+    }
     .result-card {
         background-color: #ffffff;
         padding: 1.5rem;
@@ -68,11 +36,11 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# App Title
+# Title Section
 st.markdown("## 🌿 Plant Disease Detection & Chatbot Assistant")
 st.markdown("A smart plant care tool powered by Deep Learning and GPT-4.")
 
-# API Key input
+# API Key Input
 if "api_key_set" not in st.session_state:
     st.session_state.api_key_set = False
 
@@ -83,7 +51,7 @@ if not st.session_state.api_key_set:
             if api_key:
                 openai.api_key = api_key
                 st.session_state.api_key_set = True
-                st.success("✅ API Key set successfully!")
+                st.success("✅ API Key set successfully! Click below to proceed.")
                 if st.button("Next ➡️"):
                     st.experimental_rerun()
             else:
@@ -98,7 +66,7 @@ else:
     if not os.path.exists(model_dir):
         os.makedirs(model_dir)
 
-    # Download and load model
+    # Load or download model
     model = None
     if not os.path.exists(model_h5_path):
         with st.spinner("📦 Downloading model from Google Drive..."):
@@ -107,7 +75,7 @@ else:
                 if os.path.exists(model_h5_path):
                     st.success("✅ Model downloaded successfully!")
                 else:
-                    st.error("❌ Download failed: file not found after attempt.")
+                    st.error("❌ Download failed. File missing.")
                     st.stop()
             except Exception as e:
                 st.error(f"❌ Error during download: {e}")
@@ -129,7 +97,7 @@ else:
         st.error(f"❌ Error loading class labels: {e}")
         st.stop()
 
-    # Helper functions
+    # Functions
     def load_and_preprocess_image(image, target_size=(224, 224)):
         img = image.resize(target_size)
         img_array = np.expand_dims(np.array(img).astype("float32") / 255.0, axis=0)
@@ -146,7 +114,7 @@ else:
     def get_disease_description(disease_name):
         prompt = f"""Provide a detailed description of the plant disease '{disease_name}'. Include:
         - Overview
-        - Causes and conditions
+        - Causes and environmental conditions
         - Treatment and prevention
         - Plants that may be affected"""
         try:
@@ -181,7 +149,7 @@ else:
     # Tabs
     tab1, tab2 = st.tabs(["🖼 Diagnose Plant Disease", "💬 Ask the AI Expert"])
 
-    # Tab 1: Plant Disease Detection
+    # Tab 1: Disease Detection
     with tab1:
         st.markdown("### Upload or Capture Plant Leaf Images")
 
@@ -211,12 +179,10 @@ else:
                         st.markdown(f"**🎯 Confidence:** `{conf:.2f}%`")
                         st.markdown(f"**📚 Disease Info:**\n\n{details}")
                         st.markdown("</div>", unsafe_allow_html=True)
-            else:
-                st.info("👉 Click 'Analyze Image(s)' to start.")
         else:
-            st.info("📥 Upload or capture an image to begin.")
+            st.info("📥 Upload or capture an image to begin analysis.")
 
-    # Tab 2: GPT-4 Chatbot
+    # Tab 2: Chatbot
     with tab2:
         st.markdown("### 💬 Ask the Plant AI Expert Anything")
         user_query = st.text_input("Ask something like: *How to treat leaf blight in tomatoes?*")
