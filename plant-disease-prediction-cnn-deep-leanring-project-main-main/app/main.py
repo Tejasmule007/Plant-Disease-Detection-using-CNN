@@ -31,9 +31,8 @@ else:
     model_dir = os.path.join(working_dir, "app", "trained_model")
     model_h5_path = os.path.join(model_dir, "plant_disease_prediction_model.h5")
 
-    # ✅ Google Drive Model Download URL
+    # ✅ Google Drive File ID (not full URL!)
     gdrive_file_id = "1WLJk_JlWYL-1M8enmRgiCx3ddYNJwDUv"
-    gdrive_url = f"https://drive.google.com/uc?id={gdrive_file_id}"
 
     # ✅ Ensure model directory exists
     if not os.path.exists(model_dir):
@@ -45,7 +44,7 @@ else:
     if not os.path.exists(model_h5_path):
         with st.spinner("📦 Downloading model (.h5) from Google Drive..."):
             try:
-                gdown.download(gdrive_url, model_h5_path, quiet=False, fuzzy=True)
+                gdown.download(id=gdrive_file_id, output=model_h5_path, quiet=False)
                 st.success("✅ Model downloaded successfully!")
             except Exception as e:
                 st.error(f"❌ Failed to download model: {e}")
