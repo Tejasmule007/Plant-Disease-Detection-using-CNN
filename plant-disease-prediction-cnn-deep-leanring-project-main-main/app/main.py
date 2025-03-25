@@ -30,23 +30,46 @@ else:
     working_dir = os.path.dirname(os.path.abspath(__file__))
     model_dir = os.path.join(working_dir, "app", "trained_model")
     model_h5_path = os.path.join(model_dir, "plant_disease_prediction_model.h5")
-    model_keras_path = os.path.join(model_dir, "plant_disease_prediction_model.keras")
 
     # ✅ Google Drive Model Download URL
     gdrive_file_id = "1WLJk_JlWYL-1M8enmRgiCx3ddYNJwDUv"
     gdrive_url = f"https://drive.google.com/uc?id={gdrive_file_id}"
 
+    # ✅ Ensure model directory exists
     if not os.path.exists(model_dir):
         os.makedirs(model_dir)
 
+    # ✅ Model Loading Logic with Download Fallback
     model = None
-    if os.path.exists(model_keras_path):
-        model = tf.keras.models.load_model(model_keras_path)
 
-    with open(f"{working_dir}/class_indices.json", "r") as f:
-        class_indices = json.load(f)
-    class_indices = {int(k): v for k, v in class_indices.items()}
+    if not os.path.exists(model_h5_path):
+        with st.spinner("📦 Downloading model (.h5) from Google Drive..."):
+            try:
+                gdown.download(gdrive_url, model_h5_path, quiet=False, fuzzy=True)
+                st.success("✅ Model downloaded successfully!")
+            except Exception as e:
+                st.error(f"❌ Failed to download model: {e}")
 
+    if os.path.exists(model_h5_path):
+        try:
+            model = tf.keras.models.load_model(model_h5_path)
+            st.success("✅ Model loaded successfully!")
+        except Exception as e:
+            st.error(f"❌ Failed to load model: {e}")
+    else:
+        st.error("❌ Model file does not exist and could not be downloaded.")
+
+    # ✅ Load class labels
+    class_file_path = os.path.join(working_dir, "class_indices.json")
+    try:
+        with open(class_file_path, "r") as f:
+            class_indices = json.load(f)
+        class_indices = {int(k): v for k, v in class_indices.items()}
+    except Exception as e:
+        st.error(f"❌ Failed to load class index file: {e}")
+        class_indices = {}
+
+    # ✅ Preprocessing
     def load_and_preprocess_image(image, target_size=(224, 224)):
         img = image.resize(target_size)
         img_array = np.array(img)
@@ -54,6 +77,7 @@ else:
         img_array = img_array.astype('float32') / 255.0
         return img_array
 
+    # ✅ Prediction
     def predict_image_class(model, image, class_indices):
         if model is None:
             return "No Model", 0.0
@@ -65,6 +89,7 @@ else:
         confidence_score = np.max(predictions) * 100
         return predicted_class_name, confidence_score
 
+    # ✅ GPT-4 Disease Info
     def get_disease_description(disease_name):
         prompt = f"""Provide a detailed description of the plant disease '{disease_name}'. Include:
         1. A brief description of the disease.
@@ -86,6 +111,7 @@ else:
         except Exception as e:
             return f"❌ Error: {e}"
 
+    # ✅ GPT-4 Chatbot
     def chatbot_response(user_query):
         try:
             response = openai.ChatCompletion.create(
@@ -101,10 +127,10 @@ else:
         except Exception as e:
             return f"❌ Error: {e}"
 
-    # ✅ Create Tabs
+    # ✅ Tabs
     tab1, tab2 = st.tabs(["🖼 Disease Detection", "💬 Chat with AI"])
 
-    # 🖼 Tab 1: Disease Detection
+    # 🖼 Tab 1
     with tab1:
         st.subheader("📸 Capture or Upload Images for Disease Detection")
 
@@ -113,7 +139,6 @@ else:
                                            accept_multiple_files=True)
 
         images_to_process = []
-
         if camera_image:
             images_to_process.append(Image.open(camera_image))
         if uploaded_images:
@@ -142,7 +167,7 @@ else:
         else:
             st.info("📥 Please upload or capture at least one image to begin.")
 
-    # 💬 Tab 2: Chatbot
+    # 💬 Tab 2
     with tab2:
         st.subheader("💬 Ask the Plant AI Expert")
         user_input = st.text_input("Type your question here (e.g., How to treat black rot on apples?)", "")
