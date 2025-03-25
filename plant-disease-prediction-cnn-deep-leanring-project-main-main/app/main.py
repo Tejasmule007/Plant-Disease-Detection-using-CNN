@@ -113,31 +113,31 @@ else:
     tab1, tab2 = st.tabs(["🖼 Disease Detection", "💬 Chat with AI"])
 
     # 🖼 **Tab 1: Plant Disease Detection**
-    with tab1:
-        st.subheader("📸 Capture or Upload Images for Disease Detection")
+with tab1:
+    st.subheader("📸 Capture or Upload Images for Disease Detection")
 
-        # **Real-time Camera Upload**
-        camera_image = st.camera_input("📷 Take a photo of a plant leaf")
+    # **Real-time Camera Upload**
+    camera_image = st.camera_input("📷 Take a photo of a plant leaf")
 
-        # **Batch Image Upload**
-        uploaded_images = st.file_uploader("📤 Upload plant images (Multiple Allowed)", type=["jpg", "jpeg", "png"],
-                                           accept_multiple_files=True)
+    # **Batch Image Upload**
+    uploaded_images = st.file_uploader("📤 Upload plant images (Multiple Allowed)", type=["jpg", "jpeg", "png"],
+                                       accept_multiple_files=True)
 
-        images_to_process = []
+    images_to_process = []
 
-        # Add camera image if taken
-        if camera_image:
-            images_to_process.append(Image.open(camera_image))
+    # Add camera image if taken
+    if camera_image:
+        images_to_process.append(Image.open(camera_image))
 
-        # Add uploaded images
-        if uploaded_images:
-            for img_file in uploaded_images:
-                images_to_process.append(Image.open(img_file))
+    # Add uploaded images
+    if uploaded_images:
+        for img_file in uploaded_images:
+            images_to_process.append(Image.open(img_file))
 
-        # **Process Multiple Images**
-        if images_to_process and model:
+    # Show submit button after images are uploaded or captured
+    if images_to_process:
+        if st.button("🔍 Submit for Analysis"):
             st.subheader("🖼 Processed Images & Results")
-
             for idx, image in enumerate(images_to_process):
                 col1, col2 = st.columns([1, 2])
 
@@ -152,6 +152,10 @@ else:
                     st.success(f"🌱 **Prediction:** {predicted_disease}")
                     st.info(f"🔢 **Confidence:** {confidence:.2f}%")
                     st.markdown(f"📖 **Disease Information:**\n\n{disease_details}")
+        else:
+            st.info("👉 Click 'Submit for Analysis' to see results.")
+    else:
+        st.info("📥 Please upload or capture at least one image to begin.")
 
       
 
