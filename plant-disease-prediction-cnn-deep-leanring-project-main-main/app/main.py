@@ -8,37 +8,65 @@ import streamlit as st
 import openai
 import h5py
 
-# Streamlit App Title
-st.title("🌿 Plant Disease Detection & Chatbot Assistant")
+st.set_page_config(page_title="Plant Diagnosis & AI Bot 🌿", layout="wide")
 
-# First Page: Ask for API key and submit button
+st.markdown("""
+    <style>
+    .main {
+        background-color: #f7fdf9;
+    }
+    .stButton > button {
+        background-color: #4CAF50;
+        color: white;
+        font-weight: bold;
+    }
+    .stButton > button:hover {
+        background-color: #45a049;
+    }
+    .stTextInput > div > div > input {
+        background-color: #ffffff;
+    }
+    .result-card {
+        background-color: #ffffff;
+        padding: 1.5rem;
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        margin-bottom: 1rem;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
+# Title Section
+st.markdown("## 🌿 Plant Disease Detection & Chatbot Assistant")
+st.markdown("A smart plant care tool powered by Deep Learning and GPT-4.")
+
+# API Key Input
 if "api_key_set" not in st.session_state:
     st.session_state.api_key_set = False
 
 if not st.session_state.api_key_set:
-    api_key = st.text_input("🔑 Enter your OpenAI API Key:", type="password")
-    submit_button = st.button("Submit")
-
-    if submit_button and api_key:
-        openai.api_key = api_key
-        st.session_state.api_key_set = True
-        st.success("✅ API Key has been successfully set up!")
-        if st.button("Next"):
-            st.experimental_rerun()
+    with st.expander("🔐 Set OpenAI API Key"):
+        api_key = st.text_input("Enter your OpenAI API Key:", type="password")
+        if st.button("Submit"):
+            if api_key:
+                openai.api_key = api_key
+                st.session_state.api_key_set = True
+                st.success("✅ API Key set successfully! Click below to proceed.")
+                if st.button("Next ➡️"):
+                    st.experimental_rerun()
+            else:
+                st.warning("Please enter a valid key.")
 else:
-    # ✅ Paths
+    # Paths
     working_dir = os.path.dirname(os.path.abspath(__file__))
     model_dir = os.path.join(working_dir, "app", "trained_model")
     model_h5_path = os.path.join(model_dir, "plant_disease_prediction_model.h5")
-
-    # ✅ Google Drive File ID (from provided link)
     gdrive_file_id = "11W9S_tSxzWsHmaje-Oc4upPJHiQCxyzK"
 
-    # ✅ Ensure model directory exists
     if not os.path.exists(model_dir):
         os.makedirs(model_dir)
 
-    # ✅ Download model if not present
+    # Load or download model
     model = None
     if not os.path.exists(model_h5_path):
         with st.spinner("📦 Downloading model from Google Drive..."):
@@ -47,54 +75,48 @@ else:
                 if os.path.exists(model_h5_path):
                     st.success("✅ Model downloaded successfully!")
                 else:
-                    st.error("❌ Download failed: File does not exist after attempt.")
+                    st.error("❌ Download failed. File missing.")
                     st.stop()
             except Exception as e:
-                st.error(f"❌ Download error: {e}")
+                st.error(f"❌ Error during download: {e}")
                 st.stop()
 
-    # ✅ Load model
     try:
         model = tf.keras.models.load_model(model_h5_path)
-        st.success("✅ Model loaded successfully!")
+        st.success("✅ Model loaded and ready!")
     except Exception as e:
         st.error(f"❌ Failed to load model: {e}")
         st.stop()
 
-    # ✅ Load class labels
-    class_file_path = os.path.join(working_dir, "class_indices.json")
+    # Load class labels
     try:
-        with open(class_file_path, "r") as f:
+        with open(os.path.join(working_dir, "class_indices.json"), "r") as f:
             class_indices = json.load(f)
         class_indices = {int(k): v for k, v in class_indices.items()}
     except Exception as e:
-        st.error(f"❌ Failed to load class index file: {e}")
+        st.error(f"❌ Error loading class labels: {e}")
         st.stop()
 
-    # ✅ Image Preprocessing
+    # Functions
     def load_and_preprocess_image(image, target_size=(224, 224)):
         img = image.resize(target_size)
-        img_array = np.array(img)
-        img_array = np.expand_dims(img_array, axis=0)
-        img_array = img_array.astype('float32') / 255.0
+        img_array = np.expand_dims(np.array(img).astype("float32") / 255.0, axis=0)
         return img_array
 
-    # ✅ Image Prediction
     def predict_image_class(model, image, class_indices):
-        preprocessed_img = load_and_preprocess_image(image)
-        predictions = model.predict(preprocessed_img)
-        predicted_class_index = np.argmax(predictions, axis=1)[0]
-        predicted_class_name = class_indices.get(predicted_class_index, "Unknown Disease")
-        confidence_score = np.max(predictions) * 100
-        return predicted_class_name, confidence_score
+        processed_img = load_and_preprocess_image(image)
+        predictions = model.predict(processed_img)
+        predicted_idx = np.argmax(predictions, axis=1)[0]
+        class_name = class_indices.get(predicted_idx, "Unknown Disease")
+        confidence = np.max(predictions) * 100
+        return class_name, confidence
 
-    # ✅ GPT-4 Plant Disease Description
     def get_disease_description(disease_name):
         prompt = f"""Provide a detailed description of the plant disease '{disease_name}'. Include:
-        1. A brief description of the disease.
-        2. Causes and conditions.
-        3. Treatment and prevention.
-        4. Other plants affected."""
+        - Overview
+        - Causes and environmental conditions
+        - Treatment and prevention
+        - Plants that may be affected"""
         try:
             response = openai.ChatCompletion.create(
                 model="gpt-4",
@@ -105,69 +127,68 @@ else:
                 max_tokens=500,
                 temperature=0.7
             )
-            return response["choices"][0]["message"]["content"]
+            return response.choices[0].message.content
         except Exception as e:
-            return f"❌ Error: {e}"
+            return f"❌ GPT Error: {e}"
 
-    # ✅ GPT-4 Chatbot
-    def chatbot_response(user_query):
+    def chatbot_response(query):
         try:
             response = openai.ChatCompletion.create(
                 model="gpt-4",
                 messages=[
-                    {"role": "system", "content": "You are a plant expert. Answer questions about plant care and diseases."},
-                    {"role": "user", "content": user_query}
+                    {"role": "system", "content": "You're a helpful plant health expert."},
+                    {"role": "user", "content": query}
                 ],
                 max_tokens=500,
                 temperature=0.7
             )
-            return response["choices"][0]["message"]["content"]
+            return response.choices[0].message.content
         except Exception as e:
-            return f"❌ Error: {e}"
+            return f"❌ GPT Error: {e}"
 
-    # ✅ Tabs
-    tab1, tab2 = st.tabs(["🖼 Disease Detection", "💬 Chat with AI"])
+    # Tabs
+    tab1, tab2 = st.tabs(["🖼 Diagnose Plant Disease", "💬 Ask the AI Expert"])
 
     # Tab 1: Disease Detection
     with tab1:
-        st.subheader("📸 Upload or Capture Leaf Images")
+        st.markdown("### Upload or Capture Plant Leaf Images")
 
-        camera_image = st.camera_input("📷 Take a photo")
-        uploaded_images = st.file_uploader("📤 Upload image(s)", type=["jpg", "jpeg", "png"], accept_multiple_files=True)
+        col1, col2 = st.columns([1, 2])
+        with col1:
+            camera_image = st.camera_input("📷 Take a photo")
+        with col2:
+            uploaded_images = st.file_uploader("📤 Upload image(s)", type=["jpg", "jpeg", "png"], accept_multiple_files=True)
 
-        images_to_process = []
+        images = []
         if camera_image:
-            images_to_process.append(Image.open(camera_image))
+            images.append(Image.open(camera_image))
         if uploaded_images:
-            for img_file in uploaded_images:
-                images_to_process.append(Image.open(img_file))
+            for img in uploaded_images:
+                images.append(Image.open(img))
 
-        if images_to_process:
-            if st.button("🔍 Submit for Analysis"):
-                st.subheader("🖼 Results")
-                for idx, image in enumerate(images_to_process):
-                    col1, col2 = st.columns([1, 2])
-                    with col1:
-                        resized_img = image.resize((200, 200))
-                        st.image(resized_img, caption=f"Image {idx+1}", use_column_width=True)
-                    with col2:
-                        predicted_disease, confidence = predict_image_class(model, image, class_indices)
-                        disease_details = get_disease_description(predicted_disease)
-                        st.success(f"🌱 **Prediction:** {predicted_disease}")
-                        st.info(f"🔢 **Confidence:** {confidence:.2f}%")
-                        st.markdown(f"📖 **Details:**\n\n{disease_details}")
-            else:
-                st.info("👉 Click 'Submit for Analysis' to view predictions.")
+        if images:
+            if st.button("🔍 Analyze Image(s)"):
+                for idx, image in enumerate(images):
+                    pred_class, conf = predict_image_class(model, image, class_indices)
+                    details = get_disease_description(pred_class)
+
+                    with st.container():
+                        st.markdown(f"<div class='result-card'>", unsafe_allow_html=True)
+                        st.image(image.resize((200, 200)), caption=f"Leaf Image {idx + 1}", use_column_width=False)
+                        st.markdown(f"**🪴 Prediction:** `{pred_class}`")
+                        st.markdown(f"**🎯 Confidence:** `{conf:.2f}%`")
+                        st.markdown(f"**📚 Disease Info:**\n\n{details}")
+                        st.markdown("</div>", unsafe_allow_html=True)
         else:
-            st.info("📥 Please capture or upload at least one image.")
+            st.info("📥 Upload or capture an image to begin analysis.")
 
-    # Tab 2: AI Chat
+    # Tab 2: Chatbot
     with tab2:
-        st.subheader("💬 Ask the Plant Expert")
-        user_input = st.text_input("Type your question here...")
+        st.markdown("### 💬 Ask the Plant AI Expert Anything")
+        user_query = st.text_input("Ask something like: *How to treat leaf blight in tomatoes?*")
         if st.button("💡 Get Answer"):
-            if user_input:
-                answer = chatbot_response(user_input)
-                st.write(f"🤖 **AI Response:**\n\n{answer}")
+            if user_query.strip():
+                st.markdown("#### 🤖 AI Response")
+                st.write(chatbot_response(user_query))
             else:
-                st.warning("Please enter a question.")
+                st.warning("Please enter a question first.")
